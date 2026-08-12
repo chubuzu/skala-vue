@@ -42,9 +42,13 @@ const dailyWeather = ref({})
 
 const isGameLoading = ref(true)
 const game = ref(null)
+
+// 교재 127p 요구사항 5 (본인만의 반응형 상태 + Computed + Watcher) — 날짜 선택 기능
+//   상태   : selectedDate  (아래 ref)
+//   Computed: gameDates    (홈경기가 있는 날짜만 추려 칩으로 노출)
+//   Watcher : watch(selectedDate, ...)  (127행 — 날짜가 바뀌면 해당 경기만 다시 조회)
 const selectedDate = ref('')
 
-// 이 구장에서 홈경기가 열리는 날짜만 칩으로 노출
 const gameDates = computed(() => (stadium.value ? getStadiumGameDates(stadium.value.id) : []))
 
 const displayTemp = computed(() => convertTemp(weather.value.temp, configStore.unit))
@@ -123,7 +127,7 @@ function loadAll() {
   loadGame(stadium.value, selectedDate.value)
 }
 
-// 날짜만 바뀌면 날씨는 그대로 두고 경기 정보만 다시 조회
+// 요구사항 5의 Watcher: 날짜만 바뀌면 날씨는 그대로 두고 경기 정보만 다시 조회
 watch(selectedDate, (newDate) => {
   if (!stadium.value) return
   loadGame(stadium.value, newDate)

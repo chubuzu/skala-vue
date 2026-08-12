@@ -462,9 +462,24 @@ const displayTemp = computed(() => convertTemp(props.city.temp, configStore.unit
 | `DateSelector` | 날짜 칩 선택 | props + emit(`v-model`), computed |
 | `StatusBar` | 하단 상태 메시지 | props |
 | `NavBar` | 상단 네비게이션 | RouterLink |
+
 | `UnitToggler` | ℃/℉ 전환 | Pinia Store |
 | `WindIndicator` | 바람 방향 모식도 | props, computed, SVG 바인딩 |
 | `ShadeTimeline` | 시간대별 그늘 | props, computed |
+
+### 참고: Composition 단계 요구사항 5의 이행 위치 (교재 127p)
+
+> 5. 본인만의 반응형 상태 변수, Computed, Watcher를 추가한다.
+
+`StadiumDetailView.vue`의 **날짜 선택 기능**이 이 요구사항을 담당한다. 세 요소가 하나의 실제 기능으로 묶여 있다.
+
+| 요소 | 코드 | 역할 |
+|---|---|---|
+| 반응형 상태 | `const selectedDate = ref('')` | 현재 선택된 경기 날짜 |
+| Computed | `const gameDates = computed(() => getStadiumGameDates(stadium.value.id))` | 이 구장에 홈경기가 있는 날짜만 추려서 칩으로 노출 |
+| Watcher | `watch(selectedDate, (newDate) => loadGame(stadium.value, newDate))` | 날짜가 바뀌면 **날씨는 그대로 두고 경기 정보만** 다시 조회 |
+
+> 초기에는 "검색 시도 횟수(`searchAttemptCount`)가 5회를 넘으면 안내 문구를 띄우는" `SearchHint.vue`로 이 요구사항을 채웠으나, 요구사항 3종을 억지로 채우기 위한 장치일 뿐 실사용 가치가 없어 화면에서 빠져 있었다. 실제로 동작하는 날짜 선택 기능으로 대체하고 해당 컴포넌트와 카운터 로직은 제거했다.
 
 ---
 

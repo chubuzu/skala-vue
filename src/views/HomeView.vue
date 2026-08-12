@@ -161,13 +161,6 @@ watch(
   }
 )
 
-// 요구사항 5: 본인만의 반응형 상태 변수 + Watcher (검색 시도 횟수 추적)
-const searchAttemptCount = ref(0)
-watch(searchQuery, () => {
-  searchAttemptCount.value++
-})
-// (SearchHint.vue의 isFrequent computed에서 이 값을 활용하며, 화면 표시는 꺼둔 상태)
-
 const selectCity = (city) => {
   console.log('onChange started')
   selectedCityInfo.value = city
