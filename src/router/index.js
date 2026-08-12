@@ -7,17 +7,37 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: HomeView
+    },
+    {
+      path: '/stadium/:stadiumId',
+      name: 'stadium-detail',
+      component: () => import('../views/StadiumDetailView.vue')
+    },
+    {
+      path: '/schedule',
+      name: 'schedule',
+      component: () => import('../views/ScheduleView.vue')
+    },
+    {
+      path: '/teams',
+      name: 'teams',
+      component: () => import('../views/TeamsView.vue')
     },
     {
       path: '/about',
       name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
+      component: () => import('../views/AboutView.vue')
     },
-  ],
+  // Catch-all Route: 정의되지 않은 경로 접근 시 NotFoundView로 안내
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('../views/NotFoundView.vue')
+  }
+],
 })
+
+
 
 export default router

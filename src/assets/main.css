@@ -1,21 +1,98 @@
 @import './base.css';
 
-/* 날씨 프로젝트: #app 카드를 화면 가로/세로 모두 중앙 정렬 */
-body {
-  display: flex;
-  justify-content: center;
+/* ── 애플풍 디자인 토큰 ───────────────────────────── */
+:root {
+  --app-bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-muted: rgba(120, 120, 128, 0.06);
+  --separator: rgba(60, 60, 67, 0.12);
+  --label: #1d1d1f;
+  --label-secondary: #6e6e73;
+  --accent: #0071e3;
+  --radius-lg: 20px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-a,
-.green {
+html,
+body {
+  /* 모바일에서 가로 스크롤이 생기지 않도록 */
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* 이미지·SVG가 컨테이너를 밀어내지 않도록 */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--label);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Apple SD Gothic Neo',
+    'Pretendard',
+    'Malgun Gothic',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+a {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+  color: var(--accent);
+  transition: opacity 0.2s ease;
 }
 
 @media (hover: hover) {
   a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+    opacity: 0.7;
   }
+}
+
+/* Element Plus를 애플풍 톤으로 살짝 보정 */
+.el-button {
+  border-radius: 10px !important;
+  font-weight: 500;
+}
+
+.el-tag {
+  border-radius: 8px !important;
+  border: none !important;
+}
+
+.el-input__wrapper {
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  background: var(--surface-muted) !important;
+}
+
+.el-table {
+  --el-table-border-color: var(--separator);
+  font-size: 14px;
+}
+
+/* Element Plus 컴포넌트가 좁은 화면을 밀어내지 않도록 */
+.el-skeleton,
+.el-alert,
+.el-empty {
+  max-width: 100%;
+}
+.el-alert__title {
+  word-break: keep-all;
+  line-height: 1.5;
+}
+
+.el-table th.el-table__cell {
+  background: transparent !important;
+  color: var(--label-secondary) !important;
+  font-weight: 500 !important;
 }

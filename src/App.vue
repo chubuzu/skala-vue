@@ -1,24 +1,32 @@
+<script setup>
+import { RouterView } from 'vue-router'
+import NavBar from './components/NavBar.vue'
+</script>
+
 <template>
   <div id="app">
+    <NavBar />
     <RouterView />
   </div>
 </template>
 
-<script setup>
-import { RouterView } from 'vue-router'
-</script>
-
 <style scoped>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 #app {
   width: 100%;
-  max-width: 960px;
-  margin: 40px auto;
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 32px 40px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  max-width: 1120px;
+  margin: 40px auto 64px;
+  padding: 0 24px;
+  overflow-x: hidden;
+}
+
+@media (max-width: 640px) {
+  #app {
+    margin: 20px auto 40px;
+    padding: 0 16px;
+  }
 }
 </style>

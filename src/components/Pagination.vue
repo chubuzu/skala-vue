@@ -1,15 +1,3 @@
-<template>
-  <div class="pagination">
-    <button :disabled="currentPage === 1" @click="emit('change', currentPage - 1)">
-      이전
-    </button>
-    <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-    <button :disabled="currentPage === totalPages" @click="emit('change', currentPage + 1)">
-      다음
-    </button>
-  </div>
-</template>
-
 <script setup>
 defineProps({
   currentPage: { type: Number, required: true },
@@ -19,31 +7,45 @@ defineProps({
 const emit = defineEmits(['change'])
 </script>
 
+<template>
+  <div class="pagination">
+    <button
+      v-for="page in totalPages"
+      :key="page"
+      type="button"
+      class="dot"
+      :class="{ active: page === currentPage }"
+      :aria-label="`${page}페이지`"
+      @click="emit('change', page)"
+    />
+  </div>
+</template>
+
 <style scoped>
 .pagination {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 14px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 24px;
 }
-.pagination button {
-  font-size: 13px;
-  padding: 6px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
+.dot {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(120, 120, 128, 0.25);
   cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.2s ease,
+    width 0.2s ease;
 }
-.pagination button:hover:not(:disabled) {
-  background: #f1f5f9;
+.dot:hover {
+  background: rgba(120, 120, 128, 0.45);
 }
-.pagination button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.page-info {
-  font-size: 13px;
-  color: #556;
+.dot.active {
+  width: 22px;
+  border-radius: 999px;
+  background: var(--label);
 }
 </style>

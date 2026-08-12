@@ -1,20 +1,20 @@
-<template>
-  <div class="status-bar">{{ message }}</div>
-</template>
-
 <script setup>
 defineProps({
   message: { type: String, required: true }
 })
 </script>
 
+<template>
+  <div class="status-bar">{{ message }}</div>
+</template>
+
 <style scoped>
 .status-bar {
   text-align: center;
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-size: 14px;
+  background: var(--surface-muted);
+  color: var(--label-secondary);
+  font-size: 13px;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 </style>

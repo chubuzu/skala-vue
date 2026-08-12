@@ -1,48 +1,74 @@
-<template>
-  <div class="search-box">
-    <label>🔍 도시 검색</label>
-    <input
-      type="text"
-      :value="modelValue"
-      @input="emit('update:modelValue', $event.target.value)"
-      placeholder="검색할 도시 이름 입력"
-    >
-    <p>검색 중인 도시: {{ modelValue }}</p>
-  </div>
-</template>
-
 <script setup>
-defineProps({
+import { computed } from 'vue'
+import BaseDashboardCard from './BaseDashboardCard.vue'
+
+const props = defineProps({
   modelValue: { type: String, default: '' }
 })
 
 const emit = defineEmits(['update:modelValue'])
+
+// v-model 구현: props(부모→자식)로 읽고, emit(자식→부모)으로 쓴다
+const inner = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value)
+})
 </script>
 
+<template>
+  <!-- 공통 레이아웃(BaseDashboardCard)에 검색 UI만 slot으로 주입한다 -->
+  <BaseDashboardCard title="구단 · 구장 검색">
+    <div class="search-field">
+      <span class="search-icon">🔍</span>
+      <input v-model="inner" type="text" placeholder="구단명, 구장명, 지역명으로 검색">
+      <button v-if="modelValue" class="clear-btn" @click="inner = ''">✕</button>
+    </div>
+    <p class="hint">검색어: {{ modelValue || '전체' }}</p>
+  </BaseDashboardCard>
+</template>
+
 <style scoped>
-.search-box {
-  background: #f2f6fb;
-  border-radius: 14px;
-  padding: 18px 20px;
-  margin-bottom: 20px;
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-muted);
+  border-radius: 12px;
+  padding: 10px 14px;
 }
-.search-box label {
-  display: block;
+.search-icon {
   font-size: 14px;
-  font-weight: bold;
-  margin-bottom: 10px;
+  opacity: 0.5;
 }
-.search-box input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #cdd8e5;
-  border-radius: 8px;
-  font-size: 14px;
-  box-sizing: border-box;
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--label);
 }
-.search-box p {
-  margin: 8px 0 0;
+.search-field input::placeholder {
+  color: var(--label-secondary);
+  opacity: 0.7;
+}
+.clear-btn {
+  border: none;
+  background: rgba(120, 120, 128, 0.3);
+  color: #fff;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.hint {
+  margin: 10px 0 0;
   font-size: 13px;
-  color: #667;
+  color: var(--label-secondary);
 }
 </style>
