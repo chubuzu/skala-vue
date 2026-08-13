@@ -56,7 +56,7 @@ const inner = computed({
 }
 .clear-btn {
   border: none;
-  background: rgba(120, 120, 128, 0.3);
+  background: rgba(120, 106, 80, 0.32);
   color: #fff;
   width: 18px;
   height: 18px;

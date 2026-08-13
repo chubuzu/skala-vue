@@ -62,12 +62,13 @@ defineProps({
   margin-bottom: 16px;
   min-width: 0;
 }
+/* 카드 제목: 본문보다 작지만 굵고 자간을 벌려 '섹션 라벨' 느낌 */
 .card-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--label-secondary);
+  letter-spacing: 0.7px;
+  color: var(--label-tertiary);
   margin: 0;
 }
 .card-actions {

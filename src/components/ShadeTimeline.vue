@@ -96,7 +96,7 @@ const sunsetLabel = computed(() => {
   background: rgba(255, 159, 10, 0.14);
 }
 .hour-row.most {
-  background: rgba(120, 120, 128, 0.14);
+  background: rgba(120, 106, 80, 0.13);
 }
 .hour-row.full {
   background: rgba(88, 86, 214, 0.12);

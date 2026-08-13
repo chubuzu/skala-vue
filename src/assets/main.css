@@ -1,18 +1,44 @@
 @import './base.css';
 
-/* ── 애플풍 디자인 토큰 ───────────────────────────── */
+/* ── 디자인 토큰 ───────────────────────────────────
+   기존 회색(#f5f5f7) 배경이 칙칙해서 따뜻한 아이보리 계열로 교체했다.
+   배경만 바꾸면 흰 카드가 붕 떠 보이므로, 카드·구분선·그림자까지
+   같은 웜톤(노랑 기가 살짝 도는 갈색 계열)으로 맞췄다.
+   ------------------------------------------------- */
 :root {
-  --app-bg: #f5f5f7;
-  --surface: #ffffff;
-  --surface-muted: rgba(120, 120, 128, 0.06);
-  --separator: rgba(60, 60, 67, 0.12);
-  --label: #1d1d1f;
-  --label-secondary: #6e6e73;
+  /* 배경: 종이 같은 아이보리 */
+  --app-bg: #faf7f0;
+  /* 카드: 배경보다 살짝 밝은 오프화이트 (순백 #fff는 아이보리 위에서 너무 튄다) */
+  --surface: #fffdf9;
+  /* 카드 안쪽 옅은 영역 (검색창 배경, 태그 등) */
+  --surface-muted: rgba(120, 106, 80, 0.07);
+  --surface-hover: rgba(120, 106, 80, 0.05);
+
+  /* 구분선도 회색이 아닌 웜톤 */
+  --separator: rgba(90, 78, 58, 0.13);
+
+  /* 글자: 완전한 검정 대신 살짝 따뜻한 먹색 */
+  --label: #1f1c17;
+  --label-secondary: #6f6960;
+  /* 3차 텍스트(표 헤더, 카드 라벨 등). 아이보리 배경에서 WCAG 3:1을 넘도록 잡았다 */
+  --label-tertiary: #8c857b;
+
   --accent: #0071e3;
+  --accent-soft: rgba(0, 113, 227, 0.1);
+
   --radius-lg: 20px;
   --radius-md: 16px;
   --radius-sm: 12px;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  /* 그림자도 검정이 아닌 갈색 기반이라야 아이보리 위에서 자연스럽다 */
+  --shadow-card: 0 1px 2px rgba(80, 66, 44, 0.05), 0 8px 24px rgba(80, 66, 44, 0.07);
+  --shadow-card-hover: 0 2px 6px rgba(80, 66, 44, 0.07), 0 18px 36px rgba(80, 66, 44, 0.12);
+
+  /* 타이포 스케일 */
+  --text-hero: 34px;
+  --text-title: 22px;
+  --text-body: 15px;
+  --text-caption: 13px;
 }
 
 html,
@@ -58,10 +84,29 @@ a {
   }
 }
 
-/* Element Plus를 애플풍 톤으로 살짝 보정 */
+/* ── 공통 페이지 헤더 ───────────────────────────────
+   모든 뷰가 같은 마크업을 쓰므로 여기서 한 번만 정의한다.
+   (기존에는 4개 뷰가 각자 .page-head CSS를 복붙하고 있었다) */
+.page-head {
+  margin-bottom: 24px;
+}
+.page-head h1 {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.9px;
+  margin: 0 0 6px;
+}
+.page-head .subtitle {
+  font-size: var(--text-body);
+  color: var(--label-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Element Plus 톤 보정 ──────────────────────────── */
 .el-button {
   border-radius: 10px !important;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .el-tag {
@@ -77,7 +122,19 @@ a {
 
 .el-table {
   --el-table-border-color: var(--separator);
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-row-hover-bg-color: var(--surface-hover);
   font-size: 14px;
+  background: transparent;
+}
+
+.el-table th.el-table__cell {
+  background: transparent !important;
+  color: var(--label-tertiary) !important;
+  font-weight: 600 !important;
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
 /* Element Plus 컴포넌트가 좁은 화면을 밀어내지 않도록 */
@@ -86,13 +143,20 @@ a {
 .el-empty {
   max-width: 100%;
 }
+.el-alert {
+  border-radius: var(--radius-md) !important;
+}
 .el-alert__title {
   word-break: keep-all;
   line-height: 1.5;
 }
 
-.el-table th.el-table__cell {
-  background: transparent !important;
-  color: var(--label-secondary) !important;
-  font-weight: 500 !important;
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 26px;
+    --text-title: 19px;
+  }
+  .page-head .subtitle {
+    font-size: 14px;
+  }
 }
