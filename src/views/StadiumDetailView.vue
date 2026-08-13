@@ -6,9 +6,13 @@ import { fetchCurrentWeather, fetchForecast, fetchDailySummary, hasApiKey } from
 import { fetchGameByStadiumAndDate, getTodayString, getStadiumGameDates } from '../api/kboScheduleApi'
 import { useConfigStore } from '../stores/configStore'
 import { useFavoriteStore } from '../stores/favoriteStore'
+import { useUiStore } from '../stores/uiStore'
 import { convertTemp } from '../utils/temperature'
 import { weatherEmoji } from '../utils/weatherIcon'
 import BaseDashboardCard from '../components/BaseDashboardCard.vue'
+import ComfortBadge from '../components/ComfortBadge.vue'
+import TempBadge from '../components/TempBadge.vue'
+import AddToPlanButton from '../components/AddToPlanButton.vue'
 import DateSelector from '../components/DateSelector.vue'
 import StadiumImage from '../components/StadiumImage.vue'
 import WindIndicator from '../components/WindIndicator.vue'
@@ -17,6 +21,7 @@ import ShadeTimeline from '../components/ShadeTimeline.vue'
 const route = useRoute()
 const configStore = useConfigStore()
 const favoriteStore = useFavoriteStore()
+const uiStore = useUiStore()
 
 const stadium = computed(() => findStadiumById(route.params.stadiumId))
 const isFavorite = computed(
@@ -57,6 +62,24 @@ const currentEmoji = computed(() => weatherEmoji(weather.value))
 // 현재 날씨 API에는 강수확률이 없어서, 예보의 가장 가까운 시간대 값을 대표값으로 사용
 const nearestPrecipitationChance = computed(() => forecast.value[0]?.precipitationChance ?? null)
 
+// 직관 지수 계산에 넘길 값 묶음.
+// 선택한 날짜의 경기 시간대(18시) 예보가 있으면 그걸 쓰고,
+// 없으면(예보 범위 밖) 현재 날씨로 대체한다.
+// 홈·경기 일정 화면도 같은 기준을 쓰므로 세 화면의 점수가 일치한다.
+const gameTimeWeather = computed(() => dailyWeather.value[selectedDate.value]?.evening ?? null)
+
+const scoreBasis = computed(() => (gameTimeWeather.value ? 'game' : 'now'))
+
+const scoreInput = computed(
+  () =>
+    gameTimeWeather.value ?? {
+      temp: weather.value.temp,
+      humidity: weather.value.humidity,
+      windSpeed: weather.value.windSpeed,
+      precipitationChance: nearestPrecipitationChance.value
+    }
+)
+
 function emojiOf(item) {
   return weatherEmoji(item)
 }
@@ -76,6 +99,7 @@ function formatForecastTime(dtText) {
 
 async function loadWeather(target) {
   isWeatherLoading.value = true
+  uiStore.startLoading() // 상단 진행 바에도 반영 (스켈레톤은 '어디가', 진행 바는 '아직 진행 중'을 알림)
   try {
     if (!hasApiKeySet) throw new Error('OpenWeatherMap API 키 없음')
     const [current, forecastList, summary] = await Promise.all([
@@ -101,6 +125,7 @@ async function loadWeather(target) {
     dailyWeather.value = {}
   } finally {
     isWeatherLoading.value = false
+    uiStore.stopLoading()
   }
 }
 
@@ -166,7 +191,7 @@ watch(() => route.params.stadiumId, loadAll)
           <template #default>
             <div class="weather-summary">
               <span class="big-emoji">{{ currentEmoji }}</span>
-              <div>
+              <div class="summary-text">
                 <p class="big-temp">{{ displayTemp }}{{ configStore.unitSymbol }}</p>
                 <p class="weather-meta">
                   {{ weather.status }}
@@ -175,7 +200,24 @@ watch(() => route.params.stadiumId, loadAll)
                     · 강수확률 {{ nearestPrecipitationChance }}%
                   </template>
                 </p>
+                <TempBadge
+                  :raw-temp="weather.temp"
+                  :display-temp="displayTemp"
+                  :unit-symbol="configStore.unitSymbol"
+                />
               </div>
+            </div>
+
+            <!-- 직관 지수: 감점 사유까지 함께 노출 -->
+            <div class="comfort-row">
+              <span class="comfort-title">직관 지수</span>
+              <ComfortBadge
+                :weather="scoreInput"
+                :is-dome="stadium.isDome"
+                :basis="scoreBasis"
+                size="lg"
+                show-reasons
+              />
             </div>
 
             <div v-if="forecast.length" class="forecast-strip">
@@ -225,12 +267,26 @@ watch(() => route.params.stadiumId, loadAll)
 
           <el-skeleton :loading="isGameLoading" animated :rows="1">
             <template #default>
-              <div v-if="game && !game.outOfRange" class="matchup">
-                <span class="team away">{{ game.awayTeam }}</span>
-                <span class="vs">vs</span>
-                <span class="team home">{{ game.homeTeam }}</span>
-                <span class="start-time">{{ game.startTime }} 시작</span>
-              </div>
+              <template v-if="game && !game.outOfRange">
+                <div class="matchup">
+                  <span class="team away">{{ game.awayTeam }}</span>
+                  <span class="vs">vs</span>
+                  <span class="team home">{{ game.homeTeam }}</span>
+                  <span class="start-time">{{ game.startTime }} 시작</span>
+                </div>
+
+                <AddToPlanButton
+                  variant="text"
+                  class="plan-cta"
+                  :game="{
+                    date: selectedDate,
+                    stadiumId: stadium.id,
+                    homeTeam: game.homeTeam,
+                    awayTeam: game.awayTeam,
+                    startTime: game.startTime
+                  }"
+                />
+              </template>
             </template>
           </el-skeleton>
         </template>
@@ -273,12 +329,13 @@ watch(() => route.params.stadiumId, loadAll)
 }
 .teams {
   font-size: 15px;
+  font-weight: 600;
   color: var(--label);
   margin: 0 0 4px;
 }
 .address {
   font-size: 13px;
-  color: var(--label-secondary);
+  color: var(--label-tertiary);
   margin: 0;
 }
 .fav-btn {
@@ -287,12 +344,17 @@ watch(() => route.params.stadiumId, loadAll)
   border-radius: 999px;
   padding: 9px 18px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
   background: var(--surface-muted);
   color: var(--label);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.12s ease;
+}
+.fav-btn:active {
+  transform: scale(0.95);
 }
 .fav-btn.on {
   background: #ff9f0a;
@@ -318,16 +380,43 @@ watch(() => route.params.stadiumId, loadAll)
   line-height: 1;
 }
 .big-temp {
-  font-size: 44px;
+  font-size: 46px;
   font-weight: 200;
-  letter-spacing: -2px;
+  letter-spacing: -2.2px;
   margin: 0;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 .weather-meta {
   font-size: 14px;
+  font-weight: 500;
   color: var(--label-secondary);
   margin: 4px 0 0;
+}
+.summary-text {
+  min-width: 0;
+}
+.summary-text :deep(.temp-badge) {
+  margin-top: 8px;
+}
+
+.comfort-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--separator);
+}
+.comfort-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-secondary);
+  padding-top: 9px;
+}
+.plan-cta {
+  margin-top: 14px;
 }
 
 .forecast-strip {
@@ -375,9 +464,9 @@ watch(() => route.params.stadiumId, loadAll)
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
   min-width: 0;
 }
 .matchup .vs {

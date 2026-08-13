@@ -29,21 +29,6 @@ import { RouterLink } from 'vue-router'
 </template>
 
 <style scoped>
-.page-head {
-  margin-bottom: 24px;
-}
-.page-head h1 {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
-  margin: 0 0 8px;
-}
-.subtitle {
-  font-size: 15px;
-  color: var(--label-secondary);
-  margin: 0;
-  line-height: 1.6;
-}
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);

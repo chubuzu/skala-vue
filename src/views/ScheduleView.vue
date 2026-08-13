@@ -3,9 +3,15 @@ import { ref, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { fetchGamesByDate, getTodayString, getScheduleDates } from '../api/kboScheduleApi'
 import { findStadiumById } from '../data/stadiums'
+import { fetchDailySummary, hasApiKey } from '../api/weatherApi'
+import { useUiStore } from '../stores/uiStore'
 import DateSelector from '../components/DateSelector.vue'
+import ComfortBadge from '../components/ComfortBadge.vue'
+import AddToPlanButton from '../components/AddToPlanButton.vue'
 
 const scheduleDates = getScheduleDates()
+const hasApiKeySet = hasApiKey()
+const uiStore = useUiStore()
 
 // 오늘 경기가 있으면 오늘을, 없으면 오늘 이후 가장 가까운 경기일을 기본 선택
 function pickInitialDate() {
@@ -18,23 +24,59 @@ const selectedDate = ref(pickInitialDate())
 const games = ref([])
 const isLoading = ref(true)
 
+// { 구장id: { temp, humidity, windSpeed, precipitationChance } } — 선택한 날짜의 경기 시간대 예보
+const gameDayWeather = ref({})
+
 function stadiumName(stadiumId) {
   return findStadiumById(stadiumId)?.name ?? stadiumId
+}
+
+function isDome(stadiumId) {
+  return Boolean(findStadiumById(stadiumId)?.isDome)
+}
+
+// 경기가 열리는 구장들의 '그날 저녁' 예보를 모아 직관 지수를 매긴다.
+// 무료 예보는 5일치뿐이라, 그 범위를 벗어난 날짜는 지수를 표시하지 않는다.
+async function loadGameDayWeather(dateStr, gameList) {
+  gameDayWeather.value = {}
+  if (!hasApiKeySet || !dateStr || gameList.length === 0) return
+
+  const entries = await Promise.all(
+    gameList.map(async (game) => {
+      const stadium = findStadiumById(game.stadiumId)
+      if (!stadium) return null
+      try {
+        const summary = await fetchDailySummary(stadium.lat, stadium.lon)
+        const day = summary[dateStr]
+        // evening이 없으면(예보 범위 밖) 지수를 만들지 않는다
+        return day?.evening ? [game.stadiumId, day.evening] : null
+      } catch (error) {
+        console.error(`${stadium.name} 예보 조회 실패:`, error)
+        return null
+      }
+    })
+  )
+
+  gameDayWeather.value = Object.fromEntries(entries.filter(Boolean))
 }
 
 async function loadGames(dateStr) {
   if (!dateStr) {
     games.value = []
+    gameDayWeather.value = {}
     isLoading.value = false
     return
   }
 
   isLoading.value = true
+  uiStore.startLoading()
   try {
     const result = await fetchGamesByDate(dateStr)
     games.value = result.games
+    await loadGameDayWeather(dateStr, result.games)
   } finally {
     isLoading.value = false
+    uiStore.stopLoading()
   }
 }
 
@@ -70,6 +112,25 @@ watch(selectedDate, (newDate) => loadGames(newDate))
             <div class="meta">
               <span class="stadium">{{ stadiumName(game.stadiumId) }}</span>
               <span class="time">{{ game.startTime }}</span>
+
+              <!-- 예보 범위(5일) 안이거나 돔구장일 때만 직관 지수를 노출 -->
+              <ComfortBadge
+                v-if="gameDayWeather[game.stadiumId] || isDome(game.stadiumId)"
+                :weather="gameDayWeather[game.stadiumId] ?? {}"
+                :is-dome="isDome(game.stadiumId)"
+                basis="game"
+              />
+
+              <AddToPlanButton
+                :game="{
+                  date: selectedDate,
+                  stadiumId: game.stadiumId,
+                  homeTeam: game.homeTeam,
+                  awayTeam: game.awayTeam,
+                  startTime: game.startTime
+                }"
+              />
+
               <span class="chevron">›</span>
             </div>
           </RouterLink>
@@ -80,20 +141,6 @@ watch(selectedDate, (newDate) => loadGames(newDate))
 </template>
 
 <style scoped>
-.page-head {
-  margin-bottom: 20px;
-}
-.page-head h1 {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
-  margin: 0 0 6px;
-}
-.subtitle {
-  font-size: 15px;
-  color: var(--label-secondary);
-  margin: 0;
-}
 .date-strip {
   margin-bottom: 24px;
 }
@@ -120,17 +167,19 @@ watch(selectedDate, (newDate) => loadGames(newDate))
   opacity: 1;
   background: var(--surface-muted);
 }
+/* 행에서 가장 중요한 정보 = 대진 */
 .teams {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.3px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
 }
 .vs {
-  color: var(--label-secondary);
-  font-weight: 400;
+  color: var(--label-tertiary);
+  font-weight: 500;
+  font-size: 13px;
 }
 .meta {
   display: flex;
@@ -139,18 +188,19 @@ watch(selectedDate, (newDate) => loadGames(newDate))
   font-size: 13px;
   color: var(--label-secondary);
 }
+.stadium {
+  font-weight: 600;
+  color: var(--label);
+}
+.time {
+  font-variant-numeric: tabular-nums;
+}
 .chevron {
   font-size: 18px;
   opacity: 0.4;
 }
 
 @media (max-width: 640px) {
-  .page-head h1 {
-    font-size: 26px;
-  }
-  .subtitle {
-    font-size: 14px;
-  }
   .game-row {
     flex-direction: column;
     align-items: flex-start;
