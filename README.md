@@ -11,6 +11,18 @@ KBO 10개 구단의 홈구장(잠실은 두산·LG 공동 사용이라 구장 �
 저녁 시간대 예보가 필요하고, 기온만이 아니라 강수·바람·습도를 함께 봐야 했기에 교재 범위를 넘어서는
 개념들을 추가로 학습해 적용했습니다.
 
+### 브랜치 구성
+
+히스토리에서 교재 범위와 자체 확장이 구분되도록 브랜치를 나누어 관리했습니다.
+
+| 브랜치 | 시점 | 내용 |
+|---|---|---|
+| `main` | `bb5e578` | **교재 커리큘럼 완료 지점** — Mockup / Composition / Component / Router / Pinia / Axios / UI Library |
+| `dev` | +8 커밋 | **자체 확장** — 직관 지수, 플래너, 전역 로딩, 기준 통일, 디자인 시스템, 린트, 문서 |
+
+`dev` → `main` Pull Request로 병합했으므로, PR의 변경 내역이 곧 "교재 대비 추가로 적용한 것"의 목록입니다.
+커밋도 기능 단위로 나누어, 각 커밋 메시지에 **왜 그렇게 구현했는지**를 함께 남겼습니다.
+
 ---
 
 ## 목차
@@ -35,6 +47,9 @@ KBO 10개 구단의 홈구장(잠실은 두산·LG 공동 사용이라 구장 �
 ## 1. 실행 방법
 
 ```sh
+git clone https://github.com/chubuzu/skala-vue.git
+cd skala-vue
+
 npm install
 cp .env.example .env    # VITE_OPENWEATHER_API_KEY 입력
 npm run dev
@@ -599,6 +614,59 @@ NOAA 약식 알고리즘으로 태양의 고도와 방위각을 **외부 API 없
 
 ## 5. 프로젝트 구조
 
+### 계층 구조
+
+폴더 사이의 의존 방향입니다. 화살표에 관계의 성격을 함께 표기했습니다.
+`렌더`는 부모-자식 관계, `읽기 · 쓰기`는 Pinia를 통한 연결로 **컴포넌트 트리와 무관**합니다.
+
+```mermaid
+flowchart TD
+  MAIN["main.js<br/>Pinia · Router · Element Plus 등록"]
+  APP["App.vue<br/>NavBar · 진행바 · RouterView"]
+  ROUTER["router/index.js<br/>Lazy Loading + Navigation Guard"]
+  VIEWS["views/<br/>화면 7개"]
+  COMP["components/<br/>공용 5 + 단일 사용 11"]
+  STORES["stores/<br/>config · favorite · planner · ui"]
+  UTILS["utils/<br/>comfortScore · fieldDirection · sunPosition"]
+  API["api/<br/>weatherApi · kboScheduleApi"]
+  DATA["data/<br/>stadiums · 경기일정"]
+  OWM["OpenWeatherMap API"]
+
+  MAIN --> APP
+  APP --> ROUTER
+  ROUTER -->|라우팅| VIEWS
+  ROUTER -->|로딩 상태| STORES
+  APP -->|진행바 구독| STORES
+
+  VIEWS -->|렌더| COMP
+  VIEWS -->|읽기 · 쓰기| STORES
+  VIEWS -->|호출| API
+  COMP -->|읽기 · 쓰기| STORES
+  COMP -->|계산 위임| UTILS
+  VIEWS -->|계산 위임| UTILS
+
+  API -->|axios| OWM
+  API --> DATA
+  VIEWS --> DATA
+
+  classDef entry fill:#f0eefc,stroke:#5b4bc4,color:#2c2456
+  classDef ui fill:#fffdf9,stroke:#8c857b,color:#1f1c17
+  classDef state fill:#e7f7ed,stroke:#1a7f43,color:#0e4a27
+  classDef pure fill:#fdf4e3,stroke:#a8761a,color:#5c410c
+  classDef io fill:#fdefe8,stroke:#c1531c,color:#6d2d0f
+
+  class MAIN,APP,ROUTER entry
+  class VIEWS,COMP ui
+  class STORES state
+  class UTILS pure
+  class API,DATA,OWM io
+```
+
+`router/index.js`와 `App.vue`가 서로를 import하지 않으면서도 `stores/`를 통해 이어지는 부분이
+Navigation Guard로 전역 로딩바를 제어하는 경로입니다.
+
+### 폴더
+
 ```
 src/
 ├─ main.js                       # createApp + Pinia / Router / Element Plus 등록
@@ -709,6 +777,25 @@ Node 전역을 허용했습니다.
 `vue/multi-word-component-names` 규칙에 걸린 `Pagination.vue`는 규칙을 비활성화하는 대신
 **컴포넌트 이름을 `PagerDots.vue`로 변경**했습니다. 숫자 페이지 버튼이 아니라 점 인디케이터이므로
 실제 역할에도 더 맞는 이름이라고 판단했습니다.
+
+현재 `npm run lint` 결과는 **0건**입니다.
+
+### 빌드
+
+`npm run build`가 정상 통과하는 것을 확인했습니다(1712 modules).
+라우터의 Lazy Loading이 의도대로 동작해 뷰마다 별도 청크로 분리됩니다.
+
+```
+dist/assets/StadiumDetailView-*.js   11.39 kB
+dist/assets/PlanView-*.js             3.65 kB
+dist/assets/ScheduleView-*.js         2.64 kB
+```
+
+다만 `index-*.js`가 987 kB(gzip 320 kB)로 500 kB 경고가 출력됩니다.
+`main.js`에서 `app.use(ElementPlus)`로 전역 등록해, 실제로 사용하는 6종 외의 컴포넌트와
+전체 CSS(367 kB)까지 번들에 포함되기 때문입니다.
+`unplugin-vue-components`로 온디맨드 임포트하면 줄일 수 있으나,
+교재가 전역 등록 방식을 다루고 있어 현재 구성을 유지했습니다.
 
 ### Prettier
 
