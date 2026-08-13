@@ -833,4 +833,3 @@ dist/assets/ScheduleView-*.js         2.64 kB
 | **상태 미영속** | 즐겨찾기와 직관 예정은 새로고침 시 초기화됩니다. localStorage 연동으로 해결할 수 있습니다 |
 | **응답 캐싱 부재** | 화면을 이동할 때마다 동일한 구장의 날씨를 다시 조회합니다. `weatherStore`에 TTL을 두어 개선할 수 있습니다 |
 | **scoped slot 미구현** | `el-table`이 제공하는 scoped slot을 사용하기만 했고, 직접 정의한 사례는 없습니다. `DateSelector`의 날짜 칩을 슬롯으로 개방하는 방향을 검토했습니다 |
-| **배포 미실시** | Refinement 단계까지 완료했으며 Deployment는 진행하지 못했습니다 |
