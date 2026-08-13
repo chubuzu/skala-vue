@@ -4,16 +4,22 @@ import { stadiums } from '../data/stadiums'
 </script>
 
 <template>
-  <div class="teams-view">
+  <div class="stadiums-view">
     <header class="page-head">
-      <h1>구단 목록</h1>
-      <p class="subtitle">KBO 10개 구단과 홈구장 정보를 한눈에 확인하세요.</p>
+      <h1>야구장 위치</h1>
+      <p class="subtitle">KBO 10개 구단의 홈구장 9곳과 주소를 한눈에 확인하세요.</p>
     </header>
 
     <div class="table-card">
       <el-table :data="stadiums" style="width: 100%">
         <el-table-column prop="teams" label="구단" min-width="170" />
-        <el-table-column prop="name" label="홈구장" min-width="160" />
+        <el-table-column label="홈구장" min-width="160">
+          <!-- Scoped Slot: el-table이 넘겨주는 row로 구장명을 강조 표시 -->
+          <template #default="{ row }">
+            <span class="stadium-name">{{ row.name }}</span>
+            <span v-if="row.isDome" class="dome-tag">돔</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="address" label="주소" min-width="220" />
         <el-table-column prop="region" label="지역" width="90" />
         <el-table-column label="" width="120" align="right">
@@ -29,20 +35,6 @@ import { stadiums } from '../data/stadiums'
 </template>
 
 <style scoped>
-.page-head {
-  margin-bottom: 24px;
-}
-.page-head h1 {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
-  margin: 0 0 6px;
-}
-.subtitle {
-  font-size: 15px;
-  color: var(--label-secondary);
-  margin: 0;
-}
 .table-card {
   background: var(--surface);
   border-radius: var(--radius-lg);
@@ -51,13 +43,22 @@ import { stadiums } from '../data/stadiums'
   overflow-x: auto;
 }
 
+/* 표에서 가장 중요한 정보(구장명)만 굵게 */
+.stadium-name {
+  font-weight: 600;
+  color: var(--label);
+}
+.dome-tag {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--label-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
-  .page-head h1 {
-    font-size: 26px;
-  }
-  .subtitle {
-    font-size: 14px;
-  }
   .table-card {
     padding: 8px 10px;
   }
