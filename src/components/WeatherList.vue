@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import BaseDashboardCard from './BaseDashboardCard.vue'
 import WeatherCard from './WeatherCard.vue'
-import Pagination from './Pagination.vue'
+import PagerDots from './PagerDots.vue'
 
 const props = defineProps({
   weatherList: { type: Array, required: true },
@@ -55,7 +55,7 @@ watch(
 
     <!-- Named Slot(footer): 페이지네이션은 하단 영역에 -->
     <template v-if="totalPages > 1" #footer>
-      <Pagination
+      <PagerDots
         :current-page="currentPage"
         :total-pages="totalPages"
         @change="currentPage = $event"

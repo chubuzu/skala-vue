@@ -5,14 +5,21 @@ import SearchBox from '../components/SearchBox.vue'
 import WeatherList from '../components/WeatherList.vue'
 import StatusBar from '../components/StatusBar.vue'
 import { stadiums } from '../data/stadiums'
-import { fetchCurrentWeather, hasApiKey } from '../api/weatherApi'
+import {
+  fetchCurrentWeather,
+  fetchForecast,
+  pickGameTimeForecast,
+  hasApiKey
+} from '../api/weatherApi'
 import { getTodayString, getStadiumIdsWithGameOn, getGameMapOn } from '../api/kboScheduleApi'
 import { useFavoriteStore } from '../stores/favoriteStore'
+import { useUiStore } from '../stores/uiStore'
 
 const route = useRoute()
 const router = useRouter()
 const hasApiKeySet = hasApiKey()
 const favoriteStore = useFavoriteStore()
+const uiStore = useUiStore()
 
 // 오늘 홈경기가 열리는 구장 id 목록 (카드 정렬/배지에 사용)
 const today = getTodayString()
@@ -45,9 +52,18 @@ const weatherList = ref(
     region: stadium.region,
     teamColor: stadium.teamColor,
     address: stadium.address,
+    isDome: stadium.isDome ?? false,
+    // 카드 상단에 크게 보여주는 '현재' 날씨
     temp: stadium.mockTemp,
     status: stadium.mockStatus,
-    icon: null
+    icon: null,
+    humidity: null,
+    windSpeed: null,
+    precipitationChance: null,
+    // 직관 지수 계산용 입력. 오늘 경기가 있으면 '경기 시간대(18시) 예보',
+    // 경기가 없으면 '현재 날씨'가 들어간다. (경기 일정 화면과 숫자를 맞추기 위함)
+    scoreWeather: null,
+    scoreBasis: 'now' // 'now' | 'game'
   }))
 )
 
@@ -59,12 +75,35 @@ async function loadRealWeather() {
   if (!hasApiKeySet) return
 
   isLoadingWeather.value = true
+  uiStore.startLoading() // 구장 9곳 × 2회 호출이라 이 앱에서 가장 오래 걸리는 작업
   try {
     const results = await Promise.all(
       stadiums.map(async (stadium) => {
         try {
-          const current = await fetchCurrentWeather(stadium.lat, stadium.lon)
-          return { id: stadium.id, ...current }
+          // 직관 지수에 강수확률이 필요해서 예보도 함께 받는다.
+          // 예보만 실패해도 현재 날씨는 살리기 위해 allSettled 사용.
+          const [currentResult, forecastResult] = await Promise.allSettled([
+            fetchCurrentWeather(stadium.lat, stadium.lon),
+            fetchForecast(stadium.lat, stadium.lon)
+          ])
+
+          if (currentResult.status !== 'fulfilled') throw currentResult.reason
+
+          const forecastList = forecastResult.status === 'fulfilled' ? forecastResult.value : []
+          const precipitationChance = forecastList[0]?.precipitationChance ?? null
+
+          // 오늘 이 구장에서 경기가 있으면, 지금 날씨가 아니라 '경기 시간대' 예보로 점수를 낸다.
+          // 경기 일정 화면도 같은 기준을 쓰므로 두 화면의 숫자가 일치하게 된다.
+          const gameTime = todayStadiumIds.includes(stadium.id)
+            ? pickGameTimeForecast(forecastList, today)
+            : null
+
+          return {
+            id: stadium.id,
+            ...currentResult.value,
+            precipitationChance,
+            gameTime
+          }
         } catch (error) {
           console.error(`${stadium.name} 날씨 조회 실패:`, error)
           return null // 실패한 구장은 기존 목데이터를 그대로 유지
@@ -79,10 +118,28 @@ async function loadRealWeather() {
         target.temp = result.temp
         target.status = result.status
         target.icon = result.icon
+        target.humidity = result.humidity
+        target.windSpeed = result.windSpeed
+        target.precipitationChance = result.precipitationChance
+
+        // 경기 시간대 예보가 있으면 그걸로, 없으면 현재 날씨로 점수를 낸다
+        if (result.gameTime) {
+          target.scoreWeather = result.gameTime
+          target.scoreBasis = 'game'
+        } else {
+          target.scoreWeather = {
+            temp: result.temp,
+            humidity: result.humidity,
+            windSpeed: result.windSpeed,
+            precipitationChance: result.precipitationChance
+          }
+          target.scoreBasis = 'now'
+        }
       }
     })
   } finally {
     isLoadingWeather.value = false
+    uiStore.stopLoading()
   }
 }
 
@@ -180,15 +237,7 @@ const showDetail = (city) => {
       <p class="subtitle">{{ todayLabel }} · 오늘 경기가 있는 구장을 먼저 보여드려요</p>
     </header>
 
-    <el-alert
-      v-if="!hasApiKeySet"
-      title="OpenWeatherMap API 키가 설정되지 않아 목데이터로 표시 중입니다. (.env의 VITE_OPENWEATHER_API_KEY)"
-      type="info"
-      :closable="false"
-      show-icon
-      class="api-key-alert"
-    />
-
+    <!-- API 키 경고는 App.vue의 ApiKeyNotice로 옮겨 전역 노출한다 -->
     <SearchBox v-model="searchQuery" />
 
     <el-skeleton :loading="isLoadingWeather" animated :rows="4">
@@ -205,33 +254,3 @@ const showDetail = (city) => {
     <StatusBar :message="statusMessage" />
   </div>
 </template>
-
-<style scoped>
-.page-head {
-  margin-bottom: 24px;
-}
-.page-head h1 {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
-  margin: 0 0 6px;
-}
-.subtitle {
-  font-size: 15px;
-  color: var(--label-secondary);
-  margin: 0;
-}
-.api-key-alert {
-  margin-bottom: 16px;
-  border-radius: var(--radius-sm);
-}
-
-@media (max-width: 640px) {
-  .page-head h1 {
-    font-size: 26px;
-  }
-  .subtitle {
-    font-size: 14px;
-  }
-}
-</style>

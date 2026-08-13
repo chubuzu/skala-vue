@@ -88,35 +88,42 @@ function tempOf(dateStr) {
   padding: 12px 4px 10px;
   border: none;
   border-radius: 16px;
-  background: rgba(120, 120, 128, 0.08);
+  background: var(--surface-muted);
+  color: var(--label);
   cursor: pointer;
   transition:
     background 0.2s ease,
-    transform 0.15s ease;
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
   font-family: inherit;
 }
-.date-chip:hover {
-  background: rgba(120, 120, 128, 0.14);
+@media (hover: hover) {
+  .date-chip:hover {
+    background: rgba(120, 106, 80, 0.13);
+  }
 }
 .date-chip:active {
   transform: scale(0.96);
 }
 .date-chip.active {
-  background: #0071e3;
+  background: var(--accent);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.28);
 }
 .weekday {
   font-size: 12px;
-  font-weight: 500;
-  opacity: 0.6;
+  font-weight: 600;
+  opacity: 0.55;
 }
 .date-chip.active .weekday {
-  opacity: 0.85;
+  opacity: 0.9;
 }
+/* 날짜 숫자가 이 칩에서 가장 중요한 정보 */
 .day {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
 }
 .icon {
   font-size: 20px;
@@ -124,8 +131,9 @@ function tempOf(dateStr) {
 }
 .temp {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 .date-chip.active .temp {
   opacity: 0.9;

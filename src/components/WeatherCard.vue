@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import TempBadge from './TempBadge.vue'
+import ComfortBadge from './ComfortBadge.vue'
 import StadiumImage from './StadiumImage.vue'
 import { useConfigStore } from '../stores/configStore'
 import { useFavoriteStore } from '../stores/favoriteStore'
@@ -48,7 +48,13 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
       </div>
 
       <div class="card-bottom">
-        <TempBadge :raw-temp="city.temp" :display-temp="displayTemp" :unit-symbol="configStore.unitSymbol" />
+        <!-- 직관 지수: 기온·강수·바람·습도를 합산한 0~100점.
+             오늘 경기가 있으면 경기 시간대 예보로, 없으면 현재 날씨로 계산된 값이 들어온다. -->
+        <ComfortBadge
+          :weather="city.scoreWeather ?? city"
+          :is-dome="Boolean(city.isDome)"
+          :basis="city.scoreBasis"
+        />
         <!-- 이벤트 수식어 .stop 으로 카드 클릭(버블링) 없이 상세 페이지로 이동 -->
         <button class="detail-btn" @click.stop="emit('detail', city)">상세보기 ›</button>
       </div>
@@ -64,12 +70,18 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
   cursor: pointer;
   box-shadow: var(--shadow-card);
   transition:
-    transform 0.25s ease,
+    transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1),
     box-shadow 0.25s ease;
 }
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 16px 32px rgba(0, 0, 0, 0.1);
+/* 터치 기기에서는 hover가 '고착'되므로 마우스가 있을 때만 적용 */
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+.card:active {
+  transform: scale(0.988);
 }
 .card-image-wrap {
   position: relative;
@@ -94,7 +106,7 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
   height: 30px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 253, 249, 0.88);
   backdrop-filter: blur(8px);
   color: #ff9f0a;
   font-size: 15px;
@@ -108,20 +120,23 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
 .card-body {
   padding: 16px 18px 18px;
 }
+/* 카드에서 가장 중요한 정보 = 구장 이름. 가장 굵고 크게. */
 .card-body h3 {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   margin: 0 0 3px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.45px;
 }
+/* 구단명은 보조 정보라 톤다운 */
 .team {
   font-size: 13px;
+  font-weight: 500;
   color: var(--label-secondary);
   margin: 0 0 10px;
 }
 .matchup {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 14px;
   padding: 7px 10px;
   background: var(--surface-muted);
@@ -147,14 +162,19 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
   justify-content: space-between;
   margin-bottom: 12px;
 }
+/* 온도는 숫자 크기로 존재감을 주고 굵기는 낮춰 애플풍의 가벼운 인상 유지 */
 .temp {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 300;
-  letter-spacing: -1px;
+  letter-spacing: -1.4px;
+  /* 숫자 폭을 고정해 카드마다 정렬이 흔들리지 않게 */
+  font-variant-numeric: tabular-nums;
 }
 .status {
   font-size: 13px;
+  font-weight: 500;
   color: var(--label-secondary);
+  text-align: right;
 }
 .card-bottom {
   display: flex;
@@ -167,12 +187,15 @@ const emoji = computed(() => weatherEmoji({ icon: props.city.icon, status: props
   background: transparent;
   color: var(--accent);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   padding: 4px 0;
   font-family: inherit;
+  white-space: nowrap;
 }
-.detail-btn:hover {
-  opacity: 0.7;
+@media (hover: hover) {
+  .detail-btn:hover {
+    opacity: 0.7;
+  }
 }
 </style>

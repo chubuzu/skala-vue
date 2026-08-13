@@ -690,22 +690,105 @@ const showDetail = (city) => {
 
 ---
 
-## 13. Navigation Guard (175~176p) — 이 프로젝트는 아직 미구현
+## 13. Navigation Guard (175~176p)
 
-교재: "특정 라우트로 진입하기 직전 접근 권한 검사나 리다이렉션 같은 로직을 실행하는 훅. `router.beforeEach`가 대표적인 Global Guard."
+교재: "특정 라우트로 진입하기 직전, 중간에 가로채서 접근 권한 검사 및 페이지 리다이렉션 같은 사용자 정의 로직을 실행할 수 있게 함."
 
-우리 프로젝트는 로그인/권한 개념이 없는 공개 정보성 앱이라 `router.beforeEach`를 실제로 쓸 상황이 없었다. 다만 만약 "즐겨찾기 페이지는 즐겨찾기가 하나도 없으면 홈으로 돌려보낸다" 같은 규칙을 넣는다면, 교재 176p 예시 그대로 아래처럼 확장할 수 있다.
+교재의 대표 예시는 '비로그인 사용자 차단'이지만, 이 앱은 로그인/권한 개념이 없는 공개 정보성 서비스라 차단할 대상이 없다. 대신 **지연 로딩(Lazy Loading) 때문에 생기는 빈 화면 문제**를 가드로 해결했다.
+
+`/schedule`, `/plan` 같은 페이지는 방문하는 순간 청크를 내려받는데, 그동안 `RouterView` 영역이 비어 있어 사용자는 앱이 멈춘 것으로 느낀다. 그래서 이동 시작·완료 시점에 전역 로딩 상태를 켜고 끈다.
+
+**`src/router/index.js`** (교재 176p대로 라우터 인스턴스 하단에 배치)
 
 ```js
-// (미구현 예시) router/index.js
+import { useUiStore } from '../stores/uiStore'
+
 router.beforeEach((to, from, next) => {
-  if (to.meta.requiresFavorite && favoriteStore.list.length === 0) {
-    next('/')
-  } else {
-    next()
+  // 같은 페이지 재진입(쿼리스트링만 변경)은 새로 로딩할 게 없으므로 건너뛴다
+  if (to.name !== from.name) {
+    useUiStore().startLoading()
+  }
+  next()
+})
+
+router.afterEach((to, from) => {
+  if (to.name !== from.name) {
+    useUiStore().stopLoading()
   }
 })
+
+// 청크 다운로드 실패 등으로 이동이 끊기면 afterEach가 실행되지 않으므로 여기서 정리
+router.onError(() => {
+  useUiStore().resetLoading()
+})
 ```
+
+**`src/components/GlobalProgressBar.vue`** — `uiStore.isLoading`을 읽어 화면 최상단에 얇은 진행 바를 띄운다. 특정 페이지가 아니라 **`App.vue`에 배치**해 모든 페이지에서 동작한다.
+
+### 구현하면서 걸렸던 3가지
+
+**1. 가드 안에서 Store를 호출해야 한다**
+
+`useUiStore()`를 `router/index.js` 최상단에서 부르면 앱이 죽는다. `main.js`가 `import router from './router'`를 실행하는 시점은 `app.use(createPinia())` **이전**이라 아직 활성 Pinia가 없기 때문이다. 그래서 모듈 최상단이 아니라 가드 콜백 **안에서** 호출한다.
+
+```js
+// main.js — router가 먼저 import되고, Pinia는 그 뒤에 등록된다
+import router from './router'   // ← 이 시점엔 Pinia가 없음
+const app = createApp(App)
+app.use(createPinia())          // ← 여기서야 활성화
+app.use(router)
+```
+
+**2. 같은 라우트 이동은 걸러야 한다**
+
+`HomeView`의 검색어 동기화가 타이핑할 때마다 `router.replace({ query: ... })`를 호출한다. 이때도 가드는 실행되므로, 필터링하지 않으면 글자를 칠 때마다 로딩 바가 깜빡인다. `to.name !== from.name` 조건으로 실제 페이지 전환일 때만 반응하게 했다.
+
+**3. `beforeEach`와 `afterEach`는 1:1로 짝지어지지 않는다 (무한 로딩 버그)**
+
+처음에는 양쪽에 똑같이 `to.name !== from.name` 조건을 걸고 카운터를 ±1 했는데, 진행 바가 안 꺼지는 버그가 났다. 원인을 재현해보니 이랬다.
+
+```
+before schedule→home   pending=1
+after  schedule→slow   pending=0   ← 취소된 이동의 afterEach (before는 실행되지 않았음)
+after  schedule→home   pending=-1
+```
+
+이동이 진행 중일 때 다른 이동이 끼어들면, **취소된 쪽은 `beforeEach`를 건너뛰고 `afterEach`만 실행된다.** 카운터로 세면 이 어긋남이 그대로 누적된다.
+
+그래서 라우터 로딩은 카운터가 아니라 **불리언**으로 분리하고, `afterEach`에서는 조건 없이 무조건 끄도록 했다.
+
+```js
+router.beforeEach((to, from) => {
+  if (to.name !== from.name) useUiStore().startRouteLoading()
+})
+
+// 짝 맞추기에 의존하지 않고 무조건 끈다
+router.afterEach(() => {
+  useUiStore().endRouteLoading()
+})
+```
+
+반대로 **API 호출은 카운터가 맞다.** 동시에 여러 요청이 나가고, 각 호출이 `finally`에서 확실히 짝을 맞춰 끄기 때문이다. 그래서 `uiStore`는 두 방식을 함께 쓴다.
+
+```js
+const isBusy = computed(() => routeLoading.value || pendingCount.value > 0)
+```
+
+**4. 진행 바가 안 보이는 문제 (최소 노출 시간)**
+
+`HomeView`는 정적 import라 받아올 청크가 없고, 나머지 페이지도 한 번 방문하면 캐시돼서 0ms 만에 끝난다. 즉 진행 바가 뜨자마자 사라져 눈에 보이지 않았다. 작업이 끝나도 최소 400ms는 유지하도록 `holding` 상태를 뒀고, 이 앱에서 실제로 오래 걸리는 **날씨 API 호출**(홈 화면은 구장 9곳 × 2회 = 18번)도 진행 바에 연결했다.
+
+**5. 안전장치**
+
+어떤 경로로든 로딩이 해제되지 않는 상황에 대비해, 15초가 지나면 경고 로그와 함께 강제로 해제한다. 진행 바가 영원히 떠 있는 것보다는 낫다.
+
+| Hook | 트리거 시점 | 이 프로젝트에서의 역할 |
+|---|---|---|
+| `beforeEach` | 새 라우트 이동 **시작 직전** | 로딩 시작 |
+| `afterEach` | 화면 전환 **완료 후** | 로딩 종료 |
+| `onError` | 이동 중 에러 발생 | 로딩 강제 해제 |
+
+> `beforeResolve`는 사용처가 없다. 컴포넌트 내부 가드나 비동기 라우트 컴포넌트 분석이 모두 끝난 뒤 최종 검증이 필요할 때 쓰는데, 이 앱에는 그런 검증 단계가 없다.
 
 ---
 
@@ -738,11 +821,10 @@ router.beforeEach((to, from, next) => {
 | 5 | About 뷰: 소개 내용 + 메인으로 돌아가기 링크 | ✅ | `AboutView.vue`의 `<RouterLink to="/">` |
 | 6 | 추가 view 작성 및 라우팅 | ✅ | `ScheduleView.vue`, `TeamsView.vue` 추가 |
 
-교재 개념 중 Navigation Guard(175~176p)만 "미구현"이다 — 로그인/권한 개념이 없는 공개 정보성 앱이라 실사용처가 없어 억지로 넣지 않았다.
-
-반대로 교재보다 한 단계 더 나간 부분:
+161~178p의 Vue Router 개념은 모두 실제 코드로 구현했다. 교재보다 한 단계 더 나간 부분은 다음과 같다.
 
 - Query String Routing을 **양방향** 동기화로 구현 (교재는 `onMounted`에서 읽어오는 단방향 복원만 다룸)
+- Navigation Guard를 '접근 차단'이 아니라 **지연 로딩 UX 개선**에 활용 (+ Pinia 초기화 순서, 같은 라우트 필터링, 카운터 방식 등 실제 함정 대응)
 - Mock Data 대신 실제 OpenWeatherMap API 연동 (Axios)
 - 동적 세그먼트(`route.params.stadiumId`) 변경 시 `watch`로 자동 재조회
 - 히스토리 오염을 막기 위한 `push`/`replace` 구분 적용
