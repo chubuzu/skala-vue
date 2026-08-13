@@ -11,6 +11,18 @@ KBO 10개 구단의 홈구장(잠실은 두산·LG 공동 사용이라 구장 �
 저녁 시간대 예보가 필요하고, 기온만이 아니라 강수·바람·습도를 함께 봐야 했기에 교재 범위를 넘어서는
 개념들을 추가로 학습해 적용했습니다.
 
+### 브랜치 구성
+
+히스토리에서 교재 범위와 자체 확장이 구분되도록 브랜치를 나누어 관리했습니다.
+
+| 브랜치 | 시점 | 내용 |
+|---|---|---|
+| `main` | `bb5e578` | **교재 커리큘럼 완료 지점** — Mockup / Composition / Component / Router / Pinia / Axios / UI Library |
+| `dev` | +8 커밋 | **자체 확장** — 직관 지수, 플래너, 전역 로딩, 기준 통일, 디자인 시스템, 린트, 문서 |
+
+`dev` → `main` Pull Request로 병합했으므로, PR의 변경 내역이 곧 "교재 대비 추가로 적용한 것"의 목록입니다.
+커밋도 기능 단위로 나누어, 각 커밋 메시지에 **왜 그렇게 구현했는지**를 함께 남겼습니다.
+
 ---
 
 ## 목차
@@ -35,6 +47,9 @@ KBO 10개 구단의 홈구장(잠실은 두산·LG 공동 사용이라 구장 �
 ## 1. 실행 방법
 
 ```sh
+git clone https://github.com/chubuzu/skala-vue.git
+cd skala-vue
+
 npm install
 cp .env.example .env    # VITE_OPENWEATHER_API_KEY 입력
 npm run dev
@@ -599,6 +614,59 @@ NOAA 약식 알고리즘으로 태양의 고도와 방위각을 **외부 API 없
 
 ## 5. 프로젝트 구조
 
+### 계층 구조
+
+폴더 사이의 의존 방향입니다. 화살표에 관계의 성격을 함께 표기했습니다.
+`렌더`는 부모-자식 관계, `읽기 · 쓰기`는 Pinia를 통한 연결로 **컴포넌트 트리와 무관**합니다.
+
+```mermaid
+flowchart TD
+  MAIN["main.js<br/>Pinia · Router · Element Plus 등록"]
+  APP["App.vue<br/>NavBar · 진행바 · RouterView"]
+  ROUTER["router/index.js<br/>Lazy Loading + Navigation Guard"]
+  VIEWS["views/<br/>화면 7개"]
+  COMP["components/<br/>공용 5 + 단일 사용 11"]
+  STORES["stores/<br/>config · favorite · planner · ui"]
+  UTILS["utils/<br/>comfortScore · fieldDirection · sunPosition"]
+  API["api/<br/>weatherApi · kboScheduleApi"]
+  DATA["data/<br/>stadiums · 경기일정"]
+  OWM["OpenWeatherMap API"]
+
+  MAIN --> APP
+  APP --> ROUTER
+  ROUTER -->|라우팅| VIEWS
+  ROUTER -->|로딩 상태| STORES
+  APP -->|진행바 구독| STORES
+
+  VIEWS -->|렌더| COMP
+  VIEWS -->|읽기 · 쓰기| STORES
+  VIEWS -->|호출| API
+  COMP -->|읽기 · 쓰기| STORES
+  COMP -->|계산 위임| UTILS
+  VIEWS -->|계산 위임| UTILS
+
+  API -->|axios| OWM
+  API --> DATA
+  VIEWS --> DATA
+
+  classDef entry fill:#f0eefc,stroke:#5b4bc4,color:#2c2456
+  classDef ui fill:#fffdf9,stroke:#8c857b,color:#1f1c17
+  classDef state fill:#e7f7ed,stroke:#1a7f43,color:#0e4a27
+  classDef pure fill:#fdf4e3,stroke:#a8761a,color:#5c410c
+  classDef io fill:#fdefe8,stroke:#c1531c,color:#6d2d0f
+
+  class MAIN,APP,ROUTER entry
+  class VIEWS,COMP ui
+  class STORES state
+  class UTILS pure
+  class API,DATA,OWM io
+```
+
+`router/index.js`와 `App.vue`가 서로를 import하지 않으면서도 `stores/`를 통해 이어지는 부분이
+Navigation Guard로 전역 로딩바를 제어하는 경로입니다.
+
+### 폴더
+
 ```
 src/
 ├─ main.js                       # createApp + Pinia / Router / Element Plus 등록
@@ -684,36 +752,63 @@ API 실패 시 폴백에서도 기온만 목데이터를 쓰고 습도·풍속�
 
 ## 7. 개발 환경
 
+### 사용 라이브러리
+
+| 라이브러리 | 버전 | 프로젝트에서 맡은 역할 |
+|---|---|---|
+| **Vue** | 3.5 | Composition API + `<script setup>`으로 전 컴포넌트 작성 |
+| **Vue Router** | 5 | 화면 7개 라우팅, Lazy Loading, 동적 세그먼트, Navigation Guard |
+| **Pinia** | 3 | 스토어 4개 — 단위 설정 · 즐겨찾기 · 직관 예정 · 전역 로딩 |
+| **Axios** | 1.7 | OpenWeatherMap 연동 (`axios.create()` 인스턴스) |
+| **Element Plus** | 2.9 | UI 컴포넌트 6종 |
+
+외부 API는 **OpenWeatherMap** 하나만 사용했습니다.
+차트·지도·날짜 라이브러리는 쓰지 않았고, 직관 지수·태양 위치·방위각 계산은
+`utils/`에 순수 함수로 직접 구현했습니다.
+
+### UI 라이브러리 적용 내역 — Element Plus
+
+`main.js`에서 전역 등록(`app.use(ElementPlus)`)하고 6종을 사용했습니다.
+
+| 컴포넌트 | 횟수 | 사용한 화면 | 목적 |
+|---|---|---|---|
+| `el-skeleton` | 6 | 홈 · 구장 상세 · 경기 일정 · 직관 예정 | 로딩 중 콘텐츠가 들어올 자리 확보 |
+| `el-empty` | 6 | 홈 · 경기 일정 · 구장 상세 | 검색 결과 없음, 해당 날짜 경기 없음 |
+| `el-table` + `el-table-column` | 1 + 5 | 야구장 위치 | 구장 9곳 주소 표 |
+| `el-button` | 3 | 야구장 위치 · 직관 예정 | 상세보기, 전체 비우기 |
+| `el-alert` | 2 | 전역(API 키 안내) · 직관 예정 | 안내 및 악천후 경고 |
+
+**직접 만든 컴포넌트로 대체한 것**도 있습니다.
+`el-input`과 `el-pagination`은 초기에 사용했으나, 디자인 통일과 슬롯 실습을 위해
+`SearchBox`·`PagerDots`로 교체했습니다.
+
+라이브러리 기본 렌더링을 그대로 쓰지 않고 scoped slot으로 커스터마이징한 사례는
+[3-6장](#3-6-ui-library--element-plus)에 정리했습니다.
+
 ### ESLint
 
-Flat Config로 구성했습니다.
-
-```
-js.configs.recommended
-  + eslint-plugin-vue (flat/essential)
-  + oxlint (.oxlintrc.json 기반)
-  + eslint-config-prettier   ← 포맷 규칙 충돌 제거를 위해 마지막에 배치
-```
-
-`scripts/` 폴더는 브라우저가 아닌 Node로 실행하는 도구이므로 전용 블록을 추가해
-Node 전역을 허용했습니다.
-
-```js
-{
-  name: 'app/node-scripts',
-  files: ['scripts/**/*.{js,mjs}'],
-  languageOptions: { globals: { ...globals.node } }
-}
-```
+`npm run lint`(oxlint + ESLint)를 실행해 **오류 0건**을 확인했습니다.
 
 `vue/multi-word-component-names` 규칙에 걸린 `Pagination.vue`는 규칙을 비활성화하는 대신
-**컴포넌트 이름을 `PagerDots.vue`로 변경**했습니다. 숫자 페이지 버튼이 아니라 점 인디케이터이므로
-실제 역할에도 더 맞는 이름이라고 판단했습니다.
+**컴포넌트 이름을 `PagerDots.vue`로 변경**해 해결했습니다.
+숫자 페이지 버튼이 아니라 점 인디케이터이므로 실제 역할에도 더 맞는 이름이라고 판단했습니다.
 
-### Prettier
+### 빌드
 
-`.prettierrc.json`에 `semi: false`, `singleQuote: true`, `printWidth: 100`을 설정하고,
-`.editorconfig`도 `indent_size: 2`, `max_line_length: 100`으로 맞춰 두 도구가 충돌하지 않도록 했습니다.
+`npm run build`가 정상 통과하는 것을 확인했습니다(1712 modules).
+라우터의 Lazy Loading이 의도대로 동작해 뷰마다 별도 청크로 분리됩니다.
+
+```
+dist/assets/StadiumDetailView-*.js   11.39 kB
+dist/assets/PlanView-*.js             3.65 kB
+dist/assets/ScheduleView-*.js         2.64 kB
+```
+
+다만 `index-*.js`가 987 kB(gzip 320 kB)로 500 kB 경고가 출력됩니다.
+`main.js`에서 `app.use(ElementPlus)`로 전역 등록해, 실제로 사용하는 6종 외의 컴포넌트와
+전체 CSS(367 kB)까지 번들에 포함되기 때문입니다.
+`unplugin-vue-components`로 온디맨드 임포트하면 줄일 수 있으나,
+교재가 전역 등록 방식을 다루고 있어 현재 구성을 유지했습니다.
 
 ### 환경 변수
 
@@ -738,4 +833,3 @@ Node 전역을 허용했습니다.
 | **상태 미영속** | 즐겨찾기와 직관 예정은 새로고침 시 초기화됩니다. localStorage 연동으로 해결할 수 있습니다 |
 | **응답 캐싱 부재** | 화면을 이동할 때마다 동일한 구장의 날씨를 다시 조회합니다. `weatherStore`에 TTL을 두어 개선할 수 있습니다 |
 | **scoped slot 미구현** | `el-table`이 제공하는 scoped slot을 사용하기만 했고, 직접 정의한 사례는 없습니다. `DateSelector`의 날짜 칩을 슬롯으로 개방하는 방향을 검토했습니다 |
-| **배포 미실시** | Refinement 단계까지 완료했으며 Deployment는 진행하지 못했습니다 |
